@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Octobot dYdX Candles</title>
+	<link rel="stylesheet" href="/static/css/styles.css" />
+	<script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+	<header class="topbar">
+		<div class="brand">Octobot</div>
+		<div class="controls">
+			<select id="market-select">
+				<option value="BTC-USD">BTC-USD</option>
+				<option value="ETH-USD">ETH-USD</option>
+				<option value="SOL-USD">SOL-USD</option>
+			</select>
+			<div class="timeframes">
+				<button data-tf="1m" class="tf active">1m</button>
+				<button data-tf="1h" class="tf">1h</button>
+				<button data-tf="1d" class="tf">1d</button>
+			</div>
+		</div>
+	</header>
+	<main class="container">
+		<div id="chart" class="chart"></div>
+	</main>
+	<script src="/static/js/app.js"></script>
+</body>
+</html>
