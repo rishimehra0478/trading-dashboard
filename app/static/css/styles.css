@@ -8,5 +8,61 @@ select { background: #0b0e14; color: #c7d0dc; border: 1px solid #1b1f2a; padding
 .timeframes { display: flex; gap: 8px; }
 .tf { background: #0b0e14; color: #c7d0dc; border: 1px solid #1b1f2a; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
 .tf.active { background: #1b1f2a; border-color: #2a3244; }
-.container { padding: 12px; height: calc(100vh - 56px); }
-.chart { width: 100%; height: 100%; border: 1px solid #1b1f2a; border-radius: 8px; overflow: hidden; }
+.indicators { display: flex; gap: 8px; }
+.indicator-btn { background: #0b0e14; color: #c7d0dc; border: 1px solid #1b1f2a; padding: 6px 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease; }
+.indicator-btn:hover { background: #1b1f2a; border-color: #2a3244; }
+.indicator-btn.active { background: #1b1f2a; border-color: #26a69a; color: #26a69a; }
+.indicator-btn.active .indicator-icon { color: #26a69a; }
+.indicator-icon { font-size: 14px; }
+.indicator-label { font-size: 12px; font-weight: 500; }
+.container { padding: 12px; height: calc(100vh - 56px); display: flex; flex-direction: column; }
+.chart { width: 100%; height: 100%; border: 1px solid #1b1f2a; border-radius: 8px; overflow: hidden; position: relative; }
+.chart + .chart { height: 160px; }
+
+/* Chart Tooltip Styles */
+.chart-tooltip {
+	position: absolute;
+	z-index: 1000;
+	background: rgba(15, 17, 21, 0.95);
+	backdrop-filter: blur(10px);
+	border: 1px solid #2a3244;
+	border-radius: 8px;
+	padding: 12px;
+	min-width: 140px;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	pointer-events: none;
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.tooltip-time {
+	color: #8b9bb4;
+	font-size: 11px;
+	margin-bottom: 8px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid #1b1f2a;
+	text-align: center;
+}
+
+.tooltip-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 4px;
+}
+
+.tooltip-row:last-child {
+	margin-bottom: 0;
+}
+
+.tooltip-label {
+	color: #8b9bb4;
+	font-weight: 500;
+	min-width: 16px;
+}
+
+.tooltip-value {
+	color: #c7d0dc;
+	font-weight: 600;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}

@@ -21,10 +21,17 @@
 				<button data-tf="1h" class="tf">1h</button>
 				<button data-tf="1d" class="tf">1d</button>
 			</div>
+			<div class="indicators">
+				<button id="rsi-toggle" class="indicator-btn" data-indicator="rsi">
+					<span class="indicator-icon">📊</span>
+					<span class="indicator-label">RSI</span>
+				</button>
+			</div>
 		</div>
 	</header>
 	<main class="container">
 		<div id="chart" class="chart"></div>
+		<div id="rsi-chart" class="chart" style="display:none; height: 160px; margin-top: 8px;"></div>
 	</main>
 	<script src="/static/js/app.js"></script>
 </body>
