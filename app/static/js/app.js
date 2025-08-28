@@ -17,26 +17,6 @@
 		let rsiEnabled = false;
 		let candleData = [];
 
-		// MACD variables
-		let macdChart = null;
-		let macdSeries = null;
-		let macdSignalSeries = null;
-		let macdHistogramSeries = null;
-		let macdEnabled = false;
-		let lastMacdCross = null;
-
-		// ADX variables
-		let adxChart = null;
-		let adxSeries = null;
-		let adxEnabled = false;
-		let lastAdxCross = null;
-
-		// EMA Cross variables
-		let ema9Series = null;
-		let ema21Series = null;
-		let emaCrossEnabled = false;
-		let lastEmaCross = null;
-
 		// RSI calculation function - using Wilder's smoothing method (same as Pine Script)
 		function calculateRSI(data, period = 14) {
 			if (data.length < period + 1) return [];
@@ -83,237 +63,6 @@
 			}
 			
 			return rsiData;
-		}
-
-		// MACD calculation function
-		function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
-			if (data.length < slowPeriod) return { macd: [], signal: [], histogram: [], crosses: [] };
-			
-			// Calculate EMAs
-			const fastEMA = calculateEMA(data, fastPeriod);
-			const slowEMA = calculateEMA(data, slowPeriod);
-			
-			if (fastEMA.length === 0 || slowEMA.length === 0) return { macd: [], signal: [], histogram: [], crosses: [] };
-			
-			// Calculate MACD line
-			const macdLine = [];
-			const startIndex = Math.max(fastEMA.length - slowEMA.length, 0);
-			
-			for (let i = startIndex; i < fastEMA.length; i++) {
-				const macdValue = fastEMA[i].value - slowEMA[i - startIndex].value;
-				macdLine.push({
-					time: fastEMA[i].time,
-					value: macdValue
-				});
-			}
-			
-			// Calculate Signal line (EMA of MACD)
-			const signalLine = calculateEMA(macdLine, signalPeriod);
-			
-			// Calculate Histogram and detect crosses
-			const histogram = [];
-			const crosses = [];
-			let lastHistogram = null;
-			
-			for (let i = 0; i < Math.min(macdLine.length, signalLine.length); i++) {
-				const macdVal = macdLine[macdLine.length - signalLine.length + i].value;
-				const signalVal = signalLine[i].value;
-				const histValue = macdVal - signalVal;
-				
-				histogram.push({
-					time: signalLine[i].time,
-					value: histValue
-				});
-				
-				// Detect histogram crosses (zero line)
-				if (lastHistogram !== null) {
-					if (lastHistogram <= 0 && histValue > 0) {
-						crosses.push({ time: signalLine[i].time, direction: 'up' });
-					} else if (lastHistogram >= 0 && histValue < 0) {
-						crosses.push({ time: signalLine[i].time, direction: 'down' });
-					}
-				}
-				lastHistogram = histValue;
-			}
-			
-			return { 
-				macd: macdLine.slice(-signalLine.length), 
-				signal: signalLine, 
-				histogram: histogram,
-				crosses: crosses
-			};
-		}
-
-		// EMA calculation function
-		function calculateEMA(data, period) {
-			if (data.length < period) return [];
-			
-			const emaData = [];
-			const multiplier = 2 / (period + 1);
-			
-			// First EMA is SMA
-			let sum = 0;
-			for (let i = 0; i < period; i++) {
-				sum += data[i].close || data[i].value;
-			}
-			let ema = sum / period;
-			
-			emaData.push({
-				time: data[period - 1].time,
-				value: ema
-			});
-			
-			// Calculate subsequent EMAs
-			for (let i = period; i < data.length; i++) {
-				const price = data[i].close || data[i].value;
-				ema = (price * multiplier) + (ema * (1 - multiplier));
-				emaData.push({
-					time: data[i].time,
-					value: ema
-				});
-			}
-			
-			return emaData;
-		}
-
-		// ADX calculation function
-		function calculateADX(data, period = 14) {
-			if (data.length < period + 1) return { adx: [], crosses: [] };
-			
-			const trueRanges = [];
-			const plusDMs = [];
-			const minusDMs = [];
-			
-			// Calculate True Range, +DM, -DM
-			for (let i = 1; i < data.length; i++) {
-				const high = data[i].high;
-				const low = data[i].low;
-				const prevClose = data[i - 1].close;
-				const prevHigh = data[i - 1].high;
-				const prevLow = data[i - 1].low;
-				
-				// True Range
-				const tr = Math.max(
-					high - low,
-					Math.abs(high - prevClose),
-					Math.abs(low - prevClose)
-				);
-				trueRanges.push(tr);
-				
-				// +DM and -DM
-				const upMove = high - prevHigh;
-				const downMove = prevLow - low;
-				
-				let plusDM = 0;
-				let minusDM = 0;
-				
-				if (upMove > downMove && upMove > 0) {
-					plusDM = upMove;
-				}
-				if (downMove > upMove && downMove > 0) {
-					minusDM = downMove;
-				}
-				
-				plusDMs.push(plusDM);
-				minusDMs.push(minusDM);
-			}
-			
-			// Calculate smoothed TR, +DM, -DM using Wilder's smoothing
-			if (trueRanges.length < period) return { adx: [], crosses: [] };
-			
-			let smoothedTR = trueRanges.slice(0, period).reduce((a, b) => a + b, 0);
-			let smoothedPlusDM = plusDMs.slice(0, period).reduce((a, b) => a + b, 0);
-			let smoothedMinusDM = minusDMs.slice(0, period).reduce((a, b) => a + b, 0);
-			
-			const diPlus = [];
-			const diMinus = [];
-			
-			// Calculate DI+ and DI-
-			for (let i = period; i < trueRanges.length; i++) {
-				smoothedTR = smoothedTR - smoothedTR / period + trueRanges[i];
-				smoothedPlusDM = smoothedPlusDM - smoothedPlusDM / period + plusDMs[i];
-				smoothedMinusDM = smoothedMinusDM - smoothedMinusDM / period + minusDMs[i];
-				
-				const diPlusValue = smoothedTR > 0 ? (smoothedPlusDM / smoothedTR) * 100 : 0;
-				const diMinusValue = smoothedTR > 0 ? (smoothedMinusDM / smoothedTR) * 100 : 0;
-				
-				diPlus.push(diPlusValue);
-				diMinus.push(diMinusValue);
-			}
-			
-			// Calculate DX and ADX
-			const dx = [];
-			for (let i = 0; i < diPlus.length; i++) {
-				const sum = diPlus[i] + diMinus[i];
-				const dxValue = sum > 0 ? Math.abs(diPlus[i] - diMinus[i]) / sum * 100 : 0;
-				dx.push(dxValue);
-			}
-			
-			if (dx.length < period) return { adx: [], crosses: [] };
-			
-			// Calculate ADX (smoothed DX)
-			let adxValue = dx.slice(0, period).reduce((a, b) => a + b, 0) / period;
-			const adxData = [];
-			const crosses = [];
-			
-			adxData.push({
-				time: data[period * 2].time,
-				value: adxValue
-			});
-			
-			let lastAdx = adxValue;
-			
-			for (let i = period; i < dx.length; i++) {
-				adxValue = (adxValue * (period - 1) + dx[i]) / period;
-				adxData.push({
-					time: data[period + i + 1].time,
-					value: adxValue
-				});
-				
-				// Detect ADX crosses above/below 25
-				if (lastAdx <= 25 && adxValue > 25) {
-					crosses.push({ time: data[period + i + 1].time, direction: 'up' });
-				} else if (lastAdx >= 25 && adxValue < 25) {
-					crosses.push({ time: data[period + i + 1].time, direction: 'down' });
-				}
-				
-				lastAdx = adxValue;
-			}
-			
-			return { adx: adxData, crosses: crosses };
-		}
-
-		// EMA Cross calculation function
-		function calculateEMACross(data) {
-			const ema9 = calculateEMA(data, 9);
-			const ema21 = calculateEMA(data, 21);
-			const crosses = [];
-			
-			if (ema9.length === 0 || ema21.length === 0) return { ema9: [], ema21: [], crosses: [] };
-			
-			// Align arrays
-			const minLength = Math.min(ema9.length, ema21.length);
-			const alignedEma9 = ema9.slice(-minLength);
-			const alignedEma21 = ema21.slice(-minLength);
-			
-			// Detect crosses
-			for (let i = 1; i < minLength; i++) {
-				const prev9 = alignedEma9[i - 1].value;
-				const prev21 = alignedEma21[i - 1].value;
-				const curr9 = alignedEma9[i].value;
-				const curr21 = alignedEma21[i].value;
-				
-				// Bullish cross: 9 EMA crosses above 21 EMA
-				if (prev9 <= prev21 && curr9 > curr21) {
-					crosses.push({ time: alignedEma9[i].time, direction: 'up', type: 'bullish' });
-				}
-				// Bearish cross: 9 EMA crosses below 21 EMA
-				else if (prev9 >= prev21 && curr9 < curr21) {
-					crosses.push({ time: alignedEma9[i].time, direction: 'down', type: 'bearish' });
-				}
-			}
-			
-			return { ema9: alignedEma9, ema21: alignedEma21, crosses: crosses };
 		}
 
 		// Toggle RSI indicator
@@ -453,257 +202,6 @@
 			}
 		}
 
-		// Toggle MACD indicator
-		function toggleMACD() {
-			const macdToggle = document.getElementById('macd-toggle');
-			if (macdEnabled) {
-				disableMACD();
-			} else {
-				enableMACD();
-			}
-		}
-
-		function enableMACD() {
-			if (!chart || !candleData.length) return;
-			
-			try {
-				macdEnabled = true;
-				const macdToggle = document.getElementById('macd-toggle');
-				if (macdToggle) macdToggle.classList.add('active');
-				
-				const macdContainer = document.getElementById('macd-chart');
-				if (macdContainer) macdContainer.style.display = 'block';
-				
-				if (!macdChart) {
-					macdChart = LightweightCharts.createChart(macdContainer, {
-						layout: { background: { type: 'solid', color: '#0f1115' }, textColor: '#c7d0dc' },
-						grid: { vertLines: { color: '#1b1f2a' }, horzLines: { color: '#1b1f2a' } },
-						rightPriceScale: { borderVisible: false },
-						timeScale: { borderVisible: false, visible: false },
-						height: 120,
-					});
-					
-					macdSeries = macdChart.addLineSeries({ color: '#2196F3', lineWidth: 2 });
-					macdSignalSeries = macdChart.addLineSeries({ color: '#FF9800', lineWidth: 2 });
-					macdHistogramSeries = macdChart.addHistogramSeries({
-						color: '#4CAF50',
-						priceFormat: { type: 'volume' },
-					});
-					
-					// Add zero line
-					macdChart.addLineSeries({
-						color: '#555',
-						lineWidth: 1,
-						priceLineVisible: false,
-						lastValueVisible: false,
-					}).setData([{ time: candleData[0].time, value: 0 }, { time: candleData[candleData.length - 1].time, value: 0 }]);
-				}
-				
-				updateMACDData();
-			} catch (error) {
-				console.error('Error enabling MACD:', error);
-			}
-		}
-
-		function disableMACD() {
-			try {
-				macdEnabled = false;
-				const macdToggle = document.getElementById('macd-toggle');
-				if (macdToggle) macdToggle.classList.remove('active');
-				
-				const macdContainer = document.getElementById('macd-chart');
-				if (macdContainer) macdContainer.style.display = 'none';
-				
-				if (macdChart) {
-					macdChart.remove();
-					macdChart = null;
-					macdSeries = null;
-					macdSignalSeries = null;
-					macdHistogramSeries = null;
-				}
-			} catch (error) {
-				console.error('Error disabling MACD:', error);
-			}
-		}
-
-		function updateMACDData() {
-			if (!macdEnabled || !macdSeries || !candleData.length) return;
-			
-			const macdData = calculateMACD(candleData);
-			if (macdData.macd.length > 0) {
-				macdSeries.setData(macdData.macd);
-				macdSignalSeries.setData(macdData.signal);
-				
-				// Color histogram based on value
-				const coloredHistogram = macdData.histogram.map(point => ({
-					time: point.time,
-					value: point.value,
-					color: point.value >= 0 ? '#4CAF50' : '#F44336'
-				}));
-				macdHistogramSeries.setData(coloredHistogram);
-				
-				// Store latest cross for alerts
-				if (macdData.crosses.length > 0) {
-					lastMacdCross = macdData.crosses[macdData.crosses.length - 1];
-				}
-			}
-		}
-
-		// Toggle ADX indicator
-		function toggleADX() {
-			const adxToggle = document.getElementById('adx-toggle');
-			if (adxEnabled) {
-				disableADX();
-			} else {
-				enableADX();
-			}
-		}
-
-		function enableADX() {
-			if (!chart || !candleData.length) return;
-			
-			try {
-				adxEnabled = true;
-				const adxToggle = document.getElementById('adx-toggle');
-				if (adxToggle) adxToggle.classList.add('active');
-				
-				const adxContainer = document.getElementById('adx-chart');
-				if (adxContainer) adxContainer.style.display = 'block';
-				
-				if (!adxChart) {
-					adxChart = LightweightCharts.createChart(adxContainer, {
-						layout: { background: { type: 'solid', color: '#0f1115' }, textColor: '#c7d0dc' },
-						grid: { vertLines: { color: '#1b1f2a' }, horzLines: { color: '#1b1f2a' } },
-						rightPriceScale: { borderVisible: false },
-						timeScale: { borderVisible: false, visible: false },
-						height: 120,
-					});
-					
-					adxSeries = adxChart.addLineSeries({ color: '#E91E63', lineWidth: 2 });
-					
-					// Add 25 level line
-					adxChart.addLineSeries({
-						color: '#FFC107',
-						lineWidth: 1,
-						priceLineVisible: false,
-						lastValueVisible: false,
-					}).setData([{ time: candleData[0].time, value: 25 }, { time: candleData[candleData.length - 1].time, value: 25 }]);
-				}
-				
-				updateADXData();
-			} catch (error) {
-				console.error('Error enabling ADX:', error);
-			}
-		}
-
-		function disableADX() {
-			try {
-				adxEnabled = false;
-				const adxToggle = document.getElementById('adx-toggle');
-				if (adxToggle) adxToggle.classList.remove('active');
-				
-				const adxContainer = document.getElementById('adx-chart');
-				if (adxContainer) adxContainer.style.display = 'none';
-				
-				if (adxChart) {
-					adxChart.remove();
-					adxChart = null;
-					adxSeries = null;
-				}
-			} catch (error) {
-				console.error('Error disabling ADX:', error);
-			}
-		}
-
-		function updateADXData() {
-			if (!adxEnabled || !adxSeries || !candleData.length) return;
-			
-			const adxData = calculateADX(candleData);
-			if (adxData.adx.length > 0) {
-				adxSeries.setData(adxData.adx);
-				
-				// Store latest cross for alerts
-				if (adxData.crosses.length > 0) {
-					lastAdxCross = adxData.crosses[adxData.crosses.length - 1];
-				}
-			}
-		}
-
-		// Toggle EMA Cross indicator
-		function toggleEMACross() {
-			const emaCrossToggle = document.getElementById('ema-cross-toggle');
-			if (emaCrossEnabled) {
-				disableEMACross();
-			} else {
-				enableEMACross();
-			}
-		}
-
-		function enableEMACross() {
-			if (!chart || !candleData.length) return;
-			
-			try {
-				emaCrossEnabled = true;
-				const emaCrossToggle = document.getElementById('ema-cross-toggle');
-				if (emaCrossToggle) emaCrossToggle.classList.add('active');
-				
-				if (!ema9Series) {
-					ema9Series = chart.addLineSeries({
-						color: '#FF5722',
-						lineWidth: 2,
-						title: 'EMA 9'
-					});
-				}
-				
-				if (!ema21Series) {
-					ema21Series = chart.addLineSeries({
-						color: '#3F51B5',
-						lineWidth: 2,
-						title: 'EMA 21'
-					});
-				}
-				
-				updateEMACrossData();
-			} catch (error) {
-				console.error('Error enabling EMA Cross:', error);
-			}
-		}
-
-		function disableEMACross() {
-			try {
-				emaCrossEnabled = false;
-				const emaCrossToggle = document.getElementById('ema-cross-toggle');
-				if (emaCrossToggle) emaCrossToggle.classList.remove('active');
-				
-				if (ema9Series) {
-					chart.removeSeries(ema9Series);
-					ema9Series = null;
-				}
-				
-				if (ema21Series) {
-					chart.removeSeries(ema21Series);
-					ema21Series = null;
-				}
-			} catch (error) {
-				console.error('Error disabling EMA Cross:', error);
-			}
-		}
-
-		function updateEMACrossData() {
-			if (!emaCrossEnabled || !ema9Series || !ema21Series || !candleData.length) return;
-			
-			const emaCrossData = calculateEMACross(candleData);
-			if (emaCrossData.ema9.length > 0 && emaCrossData.ema21.length > 0) {
-				ema9Series.setData(emaCrossData.ema9);
-				ema21Series.setData(emaCrossData.ema21);
-				
-				// Store latest cross for alerts
-				if (emaCrossData.crosses.length > 0) {
-					lastEmaCross = emaCrossData.crosses[emaCrossData.crosses.length - 1];
-				}
-			}
-		}
-
 		// Create tooltip element
 		function createTooltip() {
 			if (tooltip) {
@@ -765,18 +263,9 @@
 			// Hide tooltip when mouse leaves chart area
 			chartContainer.addEventListener('mouseleave', hideTooltip);
 			
-			// Re-enable indicators if they were active
+			// Re-enable RSI if it was active
 			if (rsiEnabled) {
 				setTimeout(() => enableRSI(), 100);
-			}
-			if (macdEnabled) {
-				setTimeout(() => enableMACD(), 100);
-			}
-			if (adxEnabled) {
-				setTimeout(() => enableADX(), 100);
-			}
-			if (emaCrossEnabled) {
-				setTimeout(() => enableEMACross(), 100);
 			}
 		}
 
@@ -873,18 +362,6 @@
 								}
 							}
 						}
-						// Update MACD if enabled
-						if (macdEnabled) {
-							updateMACDData();
-						}
-						// Update ADX if enabled
-						if (adxEnabled) {
-							updateADXData();
-						}
-						// Update EMA Cross if enabled
-						if (emaCrossEnabled) {
-							updateEMACrossData();
-						}
 					}
 					if (msg.type === 'update' && msg.candle) {
 						series.update(msg.candle);
@@ -920,18 +397,6 @@
 								}
 							}
 						}
-						// Update MACD if enabled
-						if (macdEnabled) {
-							updateMACDData();
-						}
-						// Update ADX if enabled
-						if (adxEnabled) {
-							updateADXData();
-						}
-						// Update EMA Cross if enabled
-						if (emaCrossEnabled) {
-							updateEMACrossData();
-						}
 					}
 					if (msg.type === 'error') {
 						console.error('Server error:', msg.message);
@@ -960,7 +425,7 @@
 			});
 		});
 
-		// Add indicator toggle event listeners
+		// Add RSI toggle event listener
 		if (rsiToggle) {
 			rsiToggle.addEventListener('click', toggleRSI);
 			console.log('RSI toggle event listener added');
@@ -968,35 +433,9 @@
 			console.error('RSI toggle button not found');
 		}
 
-		const macdToggle = document.getElementById('macd-toggle');
-		if (macdToggle) {
-			macdToggle.addEventListener('click', toggleMACD);
-			console.log('MACD toggle event listener added');
-		}
-
-		const adxToggle = document.getElementById('adx-toggle');
-		if (adxToggle) {
-			adxToggle.addEventListener('click', toggleADX);
-			console.log('ADX toggle event listener added');
-		}
-
-		const emaCrossToggle = document.getElementById('ema-cross-toggle');
-		if (emaCrossToggle) {
-			emaCrossToggle.addEventListener('click', toggleEMACross);
-			console.log('EMA Cross toggle event listener added');
-		}
-
 		window.addEventListener('resize', () => {
 			if (chart) chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
 			if (rsiChart && rsiContainer) rsiChart.applyOptions({ width: rsiContainer.clientWidth, height: rsiContainer.clientHeight });
-			if (macdChart) {
-				const macdContainer = document.getElementById('macd-chart');
-				if (macdContainer) macdChart.applyOptions({ width: macdContainer.clientWidth, height: macdContainer.clientHeight });
-			}
-			if (adxChart) {
-				const adxContainer = document.getElementById('adx-chart');
-				if (adxContainer) adxChart.applyOptions({ width: adxContainer.clientWidth, height: adxContainer.clientHeight });
-			}
 		});
 
 		// Initialize
